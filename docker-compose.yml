@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: mirat_studio
+      POSTGRES_USER: mirat_admin
+      POSTGRES_PASSWORD: mirat_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - mirat_network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mirat_network
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql://mirat_admin:mirat_password@db:5432/mirat_studio
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    networks:
+      - mirat_network
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - mirat_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  mirat_network:
+    driver: bridge
